@@ -1,29 +1,15 @@
 {
-    "manifest_version": 3,
-    "name": "My First Extension",
-    "version": "1.0",
-    "description": "A simple first extension",
-
-    "permissions": [
-        "activeTab",
-        "storage",
-        "tabs",
-        "tabHide"
-    ],
-
-    "background": {
-      "scripts": ["background.js"]
-    },
-
-    "content_scripts": [
-      {
-        "matches": ["<all_urls>"],
-        "js": ["content.js"]
-      }
-    ],
-
-    "action": {
-      "default_popup": "popup.html",
-      "default_icon": "icon.jpg"
+  "manifest_version": 2,
+  "name": "Tab Workspaces",
+  "version": "1.0",
+  "permissions": ["tabs", "tabHide", "storage"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
     }
-  }
+  ]
+}

@@ -1,25 +1,26 @@
 const BAR_HEIGHT = 40;
-const TAB_HEIGHT = 18;
 
-// Create the main bar
+// --- Bar ---
 const bar = document.createElement("div");
 bar.style.cssText = `
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   width: 100%;
   height: ${BAR_HEIGHT}px;
-  background: #333;
+  background: #1e1e2e;
   color: white;
   display: flex;
   align-items: center;
   padding: 0 10px;
-  gap: 10px;
+  gap: 6px;
   z-index: 999999;
+  font-family: sans-serif;
+  font-size: 13px;
+  box-sizing: border-box;
   transition: transform 0.2s ease;
 `;
 
-// Create the toggle tab
+// --- Toggle tab ---
 const toggleTab = document.createElement("div");
 toggleTab.textContent = "▲ hide";
 toggleTab.style.cssText = `
@@ -27,9 +28,10 @@ toggleTab.style.cssText = `
   top: ${BAR_HEIGHT}px;
   left: 50%;
   transform: translateX(-50%);
-  background: #333;
+  background: #1e1e2e;
   color: white;
   font-size: 11px;
+  font-family: sans-serif;
   padding: 2px 10px;
   border-radius: 0 0 6px 6px;
   cursor: pointer;
@@ -38,46 +40,230 @@ toggleTab.style.cssText = `
   user-select: none;
 `;
 
+// --- Context menu ---
+const contextMenu = document.createElement("div");
+contextMenu.style.cssText = `
+  position: fixed;
+  background: #2a2a3e;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 6px 0;
+  z-index: 9999999;
+  min-width: 220px;
+  max-width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  display: none;
+  font-family: sans-serif;
+`;
+
 document.body.appendChild(bar);
 document.body.appendChild(toggleTab);
+document.body.appendChild(contextMenu);
 document.body.style.marginTop = `${BAR_HEIGHT}px`;
 
-// Toggle logic
-let isVisible = true;
+// Close context menu when clicking outside
+document.addEventListener("click", () => contextMenu.style.display = "none");
+contextMenu.addEventListener("click", e => e.stopPropagation());
 
+function showContextMenu(e, ws) {
+  e.preventDefault();
+  contextMenu.innerHTML = "";
+
+  // Header
+  const header = document.createElement("div");
+  header.textContent = ws.name;
+  header.style.cssText = `
+    padding: 4px 12px 8px;
+    color: #aaa;
+    font-size: 11px;
+    border-bottom: 1px solid #444;
+    margin-bottom: 4px;
+    font-weight: bold;
+  `;
+  contextMenu.appendChild(header);
+
+  // Tab list
+  if (ws.tabs.length === 0) {
+    const empty = document.createElement("div");
+    empty.textContent = "No tabs";
+    empty.style.cssText = "padding: 8px 12px; color: #666; font-size: 12px;";
+    contextMenu.appendChild(empty);
+  }
+
+  ws.tabs.forEach(tab => {
+    const row = document.createElement("div");
+    row.style.cssText = `
+      display: flex;
+      align-items: center;
+      padding: 5px 8px;
+      gap: 6px;
+      border-radius: 4px;
+      margin: 0 4px;
+    `;
+    row.addEventListener("mouseenter", () => row.style.background = "#3a3a4e");
+    row.addEventListener("mouseleave", () => row.style.background = "transparent");
+
+    const icon = document.createElement("img");
+    icon.src = tab.favIconUrl || "";
+    icon.style.cssText = `
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border-radius: 2px;
+    object-fit: contain;
+    `;
+    // Hide broken images if favicon fails to load
+    icon.addEventListener("error", () => icon.style.display = "none");
+
+    const title = document.createElement("span");
+    title.textContent = tab.title || tab.url || "Untitled";
+    title.style.cssText = `
+      flex: 1;
+      font-size: 12px;
+      color: white;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    `;
+
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "✕";
+    closeBtn.style.cssText = `
+      background: transparent;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      font-size: 11px;
+      padding: 2px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      transition: color 0.1s;
+    `;
+    closeBtn.addEventListener("mouseenter", () => closeBtn.style.color = "#ff6b6b");
+    closeBtn.addEventListener("mouseleave", () => closeBtn.style.color = "#666");
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      browser.runtime.sendMessage({ type: "closeTab", tabId: tab.id });
+      row.remove();
+    });
+
+    row.appendChild(icon);
+    row.appendChild(title);
+    row.appendChild(closeBtn);
+    contextMenu.appendChild(row);
+  });
+
+  // Delete workspace option (not for Unorganized)
+  if (ws.id !== "unorganized") {
+    const divider = document.createElement("div");
+    divider.style.cssText = "border-top: 1px solid #444; margin: 6px 0 2px;";
+    contextMenu.appendChild(divider);
+
+    const deleteBtn = document.createElement("div");
+    deleteBtn.textContent = "🗑 Delete workspace";
+    deleteBtn.style.cssText = `
+      padding: 6px 12px;
+      color: #ff6b6b;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 0 4px;
+    `;
+    deleteBtn.addEventListener("mouseenter", () => deleteBtn.style.background = "#3a3a4e");
+    deleteBtn.addEventListener("mouseleave", () => deleteBtn.style.background = "transparent");
+    deleteBtn.addEventListener("click", () => {
+      contextMenu.style.display = "none";
+      if (confirm(`Delete workspace "${ws.name}"? Its tabs will be closed.`)) {
+        browser.runtime.sendMessage({ type: "deleteWorkspace", workspaceId: ws.id });
+      }
+    });
+    contextMenu.appendChild(deleteBtn);
+  }
+
+  // Position near cursor, keeping menu on screen
+  contextMenu.style.display = "block";
+  const rect = contextMenu.getBoundingClientRect();
+  const x = Math.min(e.clientX, window.innerWidth - rect.width - 8);
+  const y = Math.min(e.clientY, window.innerHeight - rect.height - 8);
+  contextMenu.style.left = `${x}px`;
+  contextMenu.style.top = `${y}px`;
+}
+
+// --- Toggle logic ---
+let isVisible = true;
 toggleTab.addEventListener("click", () => {
   isVisible = !isVisible;
-
-  if (isVisible) {
-    bar.style.transform = "translateY(0)";
-    toggleTab.style.top = `${BAR_HEIGHT}px`;
-    toggleTab.textContent = "▲ hide";
-    document.body.style.marginTop = `${BAR_HEIGHT}px`;
-  } else {
-    bar.style.transform = `translateY(-${BAR_HEIGHT}px)`;
-    toggleTab.style.top = "0px";
-    toggleTab.textContent = "▼ show";
-    document.body.style.marginTop = "0px";
-  }
+  bar.style.transform = isVisible ? "translateY(0)" : `translateY(-${BAR_HEIGHT}px)`;
+  toggleTab.style.top = isVisible ? `${BAR_HEIGHT}px` : "0px";
+  toggleTab.textContent = isVisible ? "▲ hide" : "▼ show";
+  document.body.style.marginTop = isVisible ? `${BAR_HEIGHT}px` : "0px";
 });
 
-// Fetch and display tab groups
-// May 29, 2026: Looks like Firefox has yet to expose tab group data
-browser.runtime.sendMessage("getTabGroups").then(response => {
-  if (response.groups.length === 0) {
-    bar.innerHTML = "<span>No tab groups</span>";
-    return;
-  }
+// --- Render workspaces ---
+function renderBar(workspaces, activeWorkspace) {
+  bar.innerHTML = "";
 
-  response.groups.forEach(name => {
-    const tag = document.createElement("span");
-    tag.textContent = name;
-    tag.style.cssText = `
-      background: #555;
-      padding: 2px 10px;
-      border-radius: 10px;
+  workspaces.forEach(ws => {
+    const btn = document.createElement("button");
+    btn.textContent = ws.name;
+    const isActive = ws.id === activeWorkspace;
+    const isUnorganized = ws.id === "unorganized";
+    btn.style.cssText = `
+      background: ${isActive ? "#7c3aed" : isUnorganized ? "#2a2a3e" : "#3a3a4e"};
+      color: ${isUnorganized && !isActive ? "#aaa" : "white"};
+      border: ${isUnorganized ? "1px solid #444" : "none"};
+      border-radius: 6px;
+      padding: 4px 12px;
+      cursor: pointer;
       font-size: 13px;
+      font-family: sans-serif;
     `;
-    bar.appendChild(tag);
+    btn.addEventListener("mouseenter", () => {
+      if (!isActive) btn.style.background = "#52526e";
+    });
+    btn.addEventListener("mouseleave", () => {
+      if (!isActive) btn.style.background = isUnorganized ? "#2a2a3e" : "#3a3a4e";
+    });
+    btn.addEventListener("click", () => {
+      browser.runtime.sendMessage({ type: "switchWorkspace", workspaceId: ws.id });
+    });
+    btn.addEventListener("contextmenu", (e) => showContextMenu(e, ws));
+
+    bar.appendChild(btn);
   });
+
+  // New workspace button
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "+ New";
+  addBtn.style.cssText = `
+    background: transparent;
+    color: #aaa;
+    border: 1px dashed #555;
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: sans-serif;
+  `;
+  addBtn.addEventListener("click", () => {
+    const name = prompt("Workspace name:");
+    if (name?.trim()) {
+      browser.runtime.sendMessage({ type: "createWorkspace", name: name.trim() });
+    }
+  });
+  bar.appendChild(addBtn);
+}
+
+// Initial load
+browser.runtime.sendMessage({ type: "getState" }).then(({ workspaces, activeWorkspace }) => {
+  renderBar(workspaces, activeWorkspace);
+});
+
+// Listen for updates
+browser.runtime.onMessage.addListener((message) => {
+  if (message.type === "stateUpdated") {
+    renderBar(message.workspaces, message.activeWorkspace);
+  }
 });
