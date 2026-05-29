@@ -7,8 +7,13 @@
     "permissions": [
         "activeTab",
         "storage",
-        "tabs"
+        "tabs",
+        "tabHide"
     ],
+
+    "background": {
+      "scripts": ["background.js"]
+    },
 
     "content_scripts": [
       {
