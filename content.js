@@ -1,29 +1,55 @@
 const BAR_HEIGHT = 40;
 
-// --- Bar ---
-const bar = document.createElement("div");
-bar.style.cssText = `
+// --- Shadow DOM host for the bar ---
+const shadowHost = document.createElement("div");
+shadowHost.style.cssText = `
   position: fixed;
   top: 0; left: 0;
   width: 100%;
   height: ${BAR_HEIGHT}px;
-  background: #1e1e2e;
-  color: white;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  gap: 6px;
   z-index: 999999;
-  font-family: sans-serif;
-  font-size: 13px;
-  box-sizing: border-box;
-  transition: transform 0.2s ease;
 `;
+const shadow = shadowHost.attachShadow({ mode: "open" });
+
+const style = document.createElement("style");
+style.textContent = `
+  *:not(style) { all: unset; box-sizing: border-box; }
+
+  #bar {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: ${BAR_HEIGHT}px;
+    background: #1e1e2e;
+    color: white;
+    padding: 0 10px;
+    gap: 6px;
+    font-family: sans-serif;
+    font-size: 13px;
+    transition: transform 0.2s ease;
+  }
+
+  button {
+    border-radius: 6px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: sans-serif;
+    color: white;
+    border: none;
+  }
+`;
+shadow.appendChild(style);
+
+const bar = document.createElement("div");
+bar.id = "bar";
+shadow.appendChild(bar);
 
 // --- Toggle tab ---
 const toggleTab = document.createElement("div");
 toggleTab.textContent = "▲ hide";
 toggleTab.style.cssText = `
+  all: unset;
   position: fixed;
   top: ${BAR_HEIGHT}px;
   left: 50%;
@@ -58,7 +84,7 @@ contextMenu.style.cssText = `
   font-family: sans-serif;
 `;
 
-document.body.appendChild(bar);
+document.body.appendChild(shadowHost);
 document.body.appendChild(toggleTab);
 document.body.appendChild(contextMenu);
 document.body.style.marginTop = `${BAR_HEIGHT}px`;
@@ -67,6 +93,7 @@ document.body.style.marginTop = `${BAR_HEIGHT}px`;
 document.addEventListener("click", () => contextMenu.style.display = "none");
 contextMenu.addEventListener("click", e => e.stopPropagation());
 
+// --- Context menu content ---
 function showContextMenu(e, ws) {
   e.preventDefault();
   contextMenu.innerHTML = "";
@@ -101,6 +128,7 @@ function showContextMenu(e, ws) {
       gap: 6px;
       border-radius: 4px;
       margin: 0 4px;
+      cursor: default;
     `;
     row.addEventListener("mouseenter", () => row.style.background = "#3a3a4e");
     row.addEventListener("mouseleave", () => row.style.background = "transparent");
@@ -108,13 +136,12 @@ function showContextMenu(e, ws) {
     const icon = document.createElement("img");
     icon.src = tab.favIconUrl || "";
     icon.style.cssText = `
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    border-radius: 2px;
-    object-fit: contain;
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      border-radius: 2px;
+      object-fit: contain;
     `;
-    // Hide broken images if favicon fails to load
     icon.addEventListener("error", () => icon.style.display = "none");
 
     const title = document.createElement("span");
@@ -139,7 +166,6 @@ function showContextMenu(e, ws) {
       padding: 2px 5px;
       border-radius: 3px;
       flex-shrink: 0;
-      transition: color 0.1s;
     `;
     closeBtn.addEventListener("mouseenter", () => closeBtn.style.color = "#ff6b6b");
     closeBtn.addEventListener("mouseleave", () => closeBtn.style.color = "#666");
